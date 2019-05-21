@@ -94,13 +94,13 @@ class Network:
                 self.layers.append(Layer(numNodes, numInputs, inputLayer=True))
             elif i == (len(self.layers) - 1):
                 numInputs = self.layers[i-1].numNodesPerLayer
-                self.layers.append(Layer(numNodes, numInputs, outputLayer=True))
+                self.layers.append(Layer(numNodes, numInputs,
+                                   outputLayer=True))
             else:
                 numInputs = self.layers[i-1].numNodesPerLayer
                 self.layers.append(Layer(numNodes, numInputs))
 
     def ForwardPass(self, U):
-
         prevActivations = U
         for layer in self.layers:
             prevActivations = layer.GetActivations(prevActivations)
@@ -110,4 +110,10 @@ class Network:
         return self.output
 
     def BackwardPass(self):
-        return 0
+        OutputGrad = []  # TODO: set correct value
+
+        for i in range(len(self.layers)-1, 0, -1):
+            if i == len(self.layers)-1:
+                self.layers[i].GetGradients(None, OutputGrad)
+            else:
+                self.layers[i].GetGradients(self.layers[i+1])
