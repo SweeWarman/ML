@@ -8,16 +8,22 @@ class Node(ABC):
         pass
 
     @abstractmethod
-    def gradient(self,u):
+    def gradient(self,x,y):
         pass
 
 class Linear(Node):
     def activate(self,u):
         return u
 
-    def gradient(self,u):
+    def gradient(self,x,y):
         return 1
 
+class Sigmoid(Node):
+    def activate(self,u):
+        return 1/(1+np.exp(u))
+
+    def gradient(self,x,y):
+        return y*(1-y)
 
 class Layer:
     def __init__(self,totalNodes,Node,weightInit=np.random.rand):
@@ -27,7 +33,7 @@ class Layer:
         self.prevLayer  = None
         self.nextLayer  = None
         self.weights    = None
-        self.output     = None
+        self.outputs    = None
         self.input      = None
         self.numInputs  = 0
         self.numOutputs = totalNodes
@@ -37,15 +43,17 @@ class Layer:
         return self.output(u)
 
     def setup(self):
-        inputsPerNode = outputsPerNode = self.totalNodes
-        if self.prevLayer is None:
+        if self.prevLayer is not None:
             self.numInputs = self.prevLayer.totalNodes
-        self.weights = self.weightInit(self.numOutputs,self.numInputs)
+            self.weights = self.weightInit(self.numOutputs,self.numInputs)
 
     def output(self,u):
         self.input  = u
-        self.output = self.Node.activate(np.dot(self.weights,u))
-        return self.output
+        if self.weights is None:
+            self.outputs = u
+            return self.outputs
+        self.outputs = self.Node.activate(np.dot(self.weights,u))
+        return self.outputs
 
 class Network:
     def __init__(self):
@@ -53,10 +61,14 @@ class Network:
 
     def __call__(self,u):
         y = lambda x,f:f(x)
-        return reduce(y,layers,u)
+        return reduce(y,self.layers,u)
 
     def AddLayer(self,numNodes,nodeType):
-        self.layers.append(Layer(numNodes,nodeType))
+        newLayer = Layer(numNodes,nodeType)
+        if len(self.layers) > 0:
+            self.layers[-1].nextLayer = newLayer
+            newLayer.prevLayer = self.layers[-1]
+        self.layers.append(newLayer)
 
     def setup(self):
         for l in self.layers:
