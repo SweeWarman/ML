@@ -38,6 +38,8 @@ class Layer:
         self.prevLayer  = None
         self.nextLayer  = None
         self.weights    = None
+        self.output     = None
+        self.input      = None
 
     def setup(self):
         inputsPerNode = outputsPerNode = self.totalNodes
@@ -53,7 +55,9 @@ class Layer:
                 self.weights = node.weights
 
     def output(self,u):
-        return self.Node.activate(np.dot(self.weights,u))
+        self.input  = u
+        self.output = self.Node.activate(np.dot(self.weights,u))
+        return self.output
 
 class Network:
     def __init__(self):
