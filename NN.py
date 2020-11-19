@@ -78,8 +78,8 @@ class Layer:
             if self.nextLayer is not None:
                 self.accumgrad = np.dot(self.nextLayer.gradientsU[:,:-1].sum(axis=0).reshape(self.numOutputs,1),
                                         np.ones((1,self.numInputs)))
-                self.gradientsW = self.gradientsW*self.accumgrad
-                self.gradientsU = self.gradientsU*self.accumgrad
+                self.gradientsW *= self.accumgrad
+                self.gradientsU *= self.accumgrad
 
         return self.gradientsW
 
@@ -117,7 +117,8 @@ class Network:
 
     def SetCostGradient(self,dJdy):
         gradientU = np.dot(dJdy,np.ones((1,self.layers[-1].numInputs)))
-        self.layers[-1].gradientsU = gradientU
+        self.layers[-1].gradientsU = gradientU.copy()
+        self.layers[-1].gradientsW = gradientU.copy()
 
 
 def MeanSquaredError(ypred,yactual):

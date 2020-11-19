@@ -17,6 +17,7 @@ nn.AddLayer(15,Sigmoid)
 nn.AddLayer(10,Sigmoid)
 nn.setup()
 
+'''
 nnRef = Ref.Network([numInputs,15,10])
 
 nnRef.weights[0] = nn.layers[1].weights[:,:-1]
@@ -34,7 +35,12 @@ dJdy = SquaredErrorGrad(myy,yi)
 nn.SetCostGradient(dJdy)
 nn.backwardpass(myy)
 
-
 db,dw = nnRef.backprop(ui,yi)
+
+print(nn.layers[-2].gradientsW[5,:])
+print(dw[-2][5,:])
+
 print("error=",np.linalg.norm(myy - refy))
-#Train(nn,MeanSquaredError,SquaredErrorGrad,data,label,0.001)
+'''
+
+Train(nn,MeanSquaredError,SquaredErrorGrad,data,label,0.01)
