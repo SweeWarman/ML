@@ -126,8 +126,7 @@ def MeanSquaredError(ypred,yactual):
     return mse
 
 def SquaredErrorGrad(ypred,yactual):
-    n = ypred.shape[1]
-    msegrad = np.sum(ypred-yactual,axis=1)/n
+    msegrad = np.mean(ypred-yactual,axis=1)
     return msegrad.reshape(ypred.shape[0],1)
 
 def Train(network,cost,grad,data,label,learningRate,minibatch = 25):
