@@ -81,6 +81,14 @@ class Network(object):
         self.biases = [b-(eta/len(mini_batch))*nb
                        for b, nb in zip(self.biases, nabla_b)]
 
+        gradW = [(1/len(mini_batch))*nw
+                        for nw in nabla_w]
+        gradB = [(1/len(mini_batch))*nb
+                       for nb in nabla_b]
+        return gradW,gradB
+
+
+
     def backprop(self, x, y):
         """Return a tuple ``(nabla_b, nabla_w)`` representing the
         gradient for the cost function C_x.  ``nabla_b`` and
@@ -98,10 +106,16 @@ class Network(object):
             activation = sigmoid(z)
             activations.append(activation)
         # backward pass
+        #print("activations[-1] ",sum(activations[-1]))
+        #print("activations[-2] ",sum(activations[-2]))
+        #print("sigprime zs[-1] ",sum(sigmoid_prime(zs[-1])))
         delta = self.cost_derivative(activations[-1], y) * \
             sigmoid_prime(zs[-1])
         nabla_b[-1] = delta
+
+        #print("delta ",sum(delta))
         nabla_w[-1] = np.dot(delta, activations[-2].transpose())
+        #print("w 1 row ",sum(nabla_w[-1][0,:]))
         # Note that the variable l in the loop below is used a little
         # differently to the notation in Chapter 2 of the book.  Here,
         # l = 1 means the last layer of neurons, l = 2 is the
@@ -114,6 +128,8 @@ class Network(object):
             delta = np.dot(self.weights[-l+1].transpose(), delta) * sp
             nabla_b[-l] = delta
             nabla_w[-l] = np.dot(delta, activations[-l-1].transpose())
+        
+        #print("w 1 row ",sum(nabla_w[-1][0,:]))
         return (nabla_b, nabla_w)
 
     def evaluate(self, test_data):
@@ -121,7 +137,7 @@ class Network(object):
         network outputs the correct result. Note that the neural
         network's output is assumed to be the index of whichever
         neuron in the final layer has the highest activation."""
-        test_results = [(np.argmax(self.feedforward(x)), y)
+        test_results = [(np.argmax(self.feedforward(x)), np.argmax(y))
                         for (x, y) in test_data]
         return sum(int(x == y) for (x, y) in test_results)
 

@@ -23,6 +23,12 @@ def GetTrainingData():
     extlabel[i,label[i]] = 1
   return (data.T,extlabel.T)
 
+def ShowInput(u):
+  img = u.reshape(28,28)
+  plt.imshow(img)
+  plt.show()
+
+
 
 
 

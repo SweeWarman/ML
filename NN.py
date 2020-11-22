@@ -93,7 +93,7 @@ class Network:
     def __call__(self,u):
         return self.forwardpass(u)
 
-    def AddLayer(self,numNodes,nodeType,weightInit=np.random.rand):
+    def AddLayer(self,numNodes,nodeType,weightInit=np.random.randn):
         newLayer = Layer(numNodes,nodeType,weightInit)
         if len(self.layers) > 0:
             self.layers[-1].nextLayer = newLayer
@@ -111,7 +111,9 @@ class Network:
         y = lambda x,f:f(x)
         return reduce(y,self.layers,u)
 
-    def backwardpass(self,y):
+    def backwardpass(self,ypred,yactual,costgrad):
+        dJdy = costgrad(ypred,yactual)
+        self.SetCostGradient(dJdy)
         for i in range(self.totalLayers):
             self.layers[self.totalLayers - 1 - i].backwardpass()
 
@@ -130,38 +132,44 @@ def SquaredErrorGrad(ypred,yactual):
     msegrad = np.mean(ypred-yactual,axis=1)
     return msegrad.reshape(ypred.shape[0],1)
 
-def Train(network,cost,grad,data,label,learningRate,minibatch = 25):
+def TestSetEvaluation(nn,testData,testLabel):
+    total = testData.shape[1]
+    ypred = np.argmax(nn(testData),axis=0)
+    yactual = np.argmax(testLabel,axis=0)
+    n = len([abs(val) for val in ypred-yactual if abs(val) < 1])
+    print(n,"/",total)
+
+
+def Train(network,cost,grad,data,label,epochs,learningRate,minibatch = 25,testData=None,testLabel=None):
     totalSize = data.shape[1]
-    # forward pass
-    ypred = network(data)
+    indices = [i for i in range(totalSize)]
 
-    # compute error
-    error = cost(ypred,label)
-
-    numIterations = 0
-
-    while error > 1e-1:
-        numIterations += 1
-        print(numIterations,": ",error)
-
+    for i in range(epochs):
         # sample mini batch from data
-        indices = np.random.randint(0,totalSize,minibatch)
-        sampleData = data[:,indices]
-        yactual = label[:,indices]
+        np.random.shuffle(indices)
+        dataS = data[:,indices]
+        labelS = label[:,indices]
+        numMiniBatches = int(totalSize/minibatch)
+        for j in range(numMiniBatches):
+            start = j*minibatch
+            end   = start + minibatch
+            sampleData = dataS[:,start:end]
+            yactual = labelS[:,start:end]
 
-        # forward pass
-        ypred = network(sampleData)
+            # forward pass
+            ypred = network(sampleData)
 
-        # Set cost gradient
-        dJdy = grad(ypred,yactual)
-        network.SetCostGradient(dJdy)
+            # Set cost gradient
+            dJdy = grad(ypred,yactual)
+            network.SetCostGradient(dJdy)
 
-        # backward pass
-        network.backwardpass(ypred)
+            # backward pass
+            network.backwardpass(ypred,yactual,grad)
 
-        # update weights by gradient descent
-        for layer in network.layers[1:]:
-            layer.weights -= learningRate*layer.gradientsW
+            # update weights by gradient descent
+            for layer in network.layers[1:]:
+                layer.weights -= learningRate*layer.gradientsW
 
-        error = cost(ypred,yactual)
+        if testData is not None and testLabel is not None:
+            TestSetEvaluation(network,testData,testLabel)
         
