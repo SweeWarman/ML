@@ -56,6 +56,10 @@ class Layer:
             self.gradientsW = np.zeros((1,self.numInputs))
             self.gradientsU = np.zeros((1,self.numInputs))
 
+    def initializeGrad(self):
+        self.gradientsW  = np.ones((self.numOutputs,self.numInputs))
+        self.gradientsU  = np.ones((self.numOutputs,self.numInputs))
+
     def forwardpass(self,u):
         self.input  = np.vstack((u,np.ones((1,u.shape[1]))))
         if self.weights is None:
@@ -67,12 +71,9 @@ class Layer:
 
     def backwardpass(self):
         if self.prevLayer is not None:
-            weightedInput = np.mean(self.weightedInput,axis=1).reshape(self.totalNodes,1)
-            outputs       = np.mean(self.outputs,axis=1).reshape(self.totalNodes,1)
-            input         = np.mean(self.input,axis=1).reshape(self.numInputs,1)
-            self.gradientsW *= np.dot(self.Node.gradient(weightedInput,outputs),
-                                    np.transpose(input))
-            self.gradientsU *= np.dot(self.Node.gradient(weightedInput,outputs),
+            self.gradientsW *= np.dot(self.Node.gradient(self.weightedInput,self.outputs),
+                                    np.transpose(self.input))
+            self.gradientsU *= np.dot(self.Node.gradient(self.weightedInput,self.outputs),
                                     np.ones((1,self.numInputs)))*self.weights
             self.gradientsU[:,-1] = 0 # last column is the bias term
             if self.nextLayer is not None:
@@ -115,6 +116,8 @@ class Network:
         dJdy = costgrad(ypred,yactual)
         self.SetCostGradient(dJdy)
         for i in range(self.totalLayers):
+            if i > 0:
+                self.layers[self.totalLayers - 1 - i].initializeGrad()
             self.layers[self.totalLayers - 1 - i].backwardpass()
 
     def SetCostGradient(self,dJdy):
@@ -141,6 +144,7 @@ def TestSetEvaluation(nn,testData,testLabel):
 
 
 def Train(network,cost,grad,data,label,epochs,learningRate,minibatch = 25,testData=None,testLabel=None):
+    inputSize = data.shape[0]
     totalSize = data.shape[1]
     indices = [i for i in range(totalSize)]
 
@@ -156,19 +160,21 @@ def Train(network,cost,grad,data,label,epochs,learningRate,minibatch = 25,testDa
             sampleData = dataS[:,start:end]
             yactual = labelS[:,start:end]
 
-            # forward pass
-            ypred = network(sampleData)
+            weightsGrad = [np.zeros(l.weights.shape) for l in network.layers[1:]]
+            for k in range(minibatch):
+                # forward pass
+                ypred = network(sampleData[:,k].reshape(inputSize,1))
 
-            # Set cost gradient
-            dJdy = grad(ypred,yactual)
-            network.SetCostGradient(dJdy)
+                # backward pass
+                network.backwardpass(ypred,yactual[:,k].reshape(10,1),grad)
 
-            # backward pass
-            network.backwardpass(ypred,yactual,grad)
+                weightsGrad = [wg+l.gradientsW for wg,l in zip(weightsGrad,network.layers[1:])]
 
-            # update weights by gradient descent
-            for layer in network.layers[1:]:
-                layer.weights -= learningRate*layer.gradientsW
+
+            weightsGrad = [w/minibatch for w in weightsGrad]
+            for wg,layer in zip(weightsGrad,network.layers[1:]):
+                layer.weights -= 0.01*wg
+
 
         if testData is not None and testLabel is not None:
             TestSetEvaluation(network,testData,testLabel)

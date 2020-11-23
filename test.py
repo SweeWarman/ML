@@ -37,7 +37,9 @@ testDataSet = [(x.reshape(numInputs,1),y.reshape(10,1)) for x,y in zip(testData.
 # don't forget to uncomment shuffling
 #nnRef.SGD(trainDataSet,100,100,0.01,testDataSet)
 
-#Train(nn,MeanSquaredError,SquaredErrorGrad,trainData,trainLabel,100,0.01,100,testData,testLabel)
+Train(nn,MeanSquaredError,SquaredErrorGrad,trainData,trainLabel,100,0.01,100,testData,testLabel)
+
+"""
 
 ypred2 = nnRef.feedforward(testDataSet[0][0])
 gradB0,gradW0 = nnRef.backprop(testDataSet[0][0],testDataSet[0][1])
@@ -67,23 +69,37 @@ print(sum(grad1))
 #print(sum(grad1))
 
 
-gradW,gradB = nnRef.update_mini_batch(testDataSet[:1],0.01)
+#gradW,gradB = nnRef.update_mini_batch(testDataSet[:1],0.01)
 
-print(sum(gradW[-1][0,:]))
+#print(sum(gradW[-1][0,:]))
+
+
+#gradW,gradB = nnRef.update_mini_batch(testDataSet[:1],0.01)
+#print(sum(gradW[-1][0,:]))
+"""
 
 """
 weightsGrad = [np.zeros(l.weights.shape) for l in nn.layers[1:]]
 for k in range(10):
     # forward pass
-    ypred = nn(trainData[:,k].reshape(numInputs,1))
-    ypred0 = nnRef.feedforward(trainDataSet[k][0])
+    ypred = nn(testData[:,k].reshape(numInputs,1))
 
     # backward pass
-    nn.backwardpass(ypred,trainLabel[:,k].reshape(10,1),SquaredErrorGrad)
-    gradb,gradW = nnRef.backprop(trainDataSet[k][0],trainDataSet[k][1])
+    nn.backwardpass(ypred,testLabel[:,k].reshape(10,1),SquaredErrorGrad)
 
     weightsGrad = [wg+l.gradientsW for wg,l in zip(weightsGrad,nn.layers[1:])]
 
+
 weightsGrad = [w/10 for w in weightsGrad]
-gradW,gradB = nnRef.update_mini_batch(trainDataSet[:10],0.01)
+for wg,layer in zip(weightsGrad,nn.layers[1:]):
+    layer.weights -= 0.01*wg
+gradW,gradB = nnRef.update_mini_batch(testDataSet[:10],0.01)
+
+print("***")
+print(sum(weightsGrad[-1][0,:-1]))
+print(sum(gradW[-1][0,:]))
+
+print("$$$$$")
+print(sum(nn.layers[-1].weights[0,:-1]))
+print(sum(nnRef.weights[-1][0,:]))
 """

@@ -80,7 +80,6 @@ class Network(object):
                         for w, nw in zip(self.weights, nabla_w)]
         self.biases = [b-(eta/len(mini_batch))*nb
                        for b, nb in zip(self.biases, nabla_b)]
-
         gradW = [(1/len(mini_batch))*nw
                         for nw in nabla_w]
         gradB = [(1/len(mini_batch))*nb
