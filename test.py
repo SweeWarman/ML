@@ -4,8 +4,6 @@ from NN import (Network, MeanSquaredError,
                 SquaredErrorGrad, Sigmoid,
                 Linear, Train)
 
-import BaseNN as Ref
-
 data,label = GetTrainingData()
 
 N = 50000 
