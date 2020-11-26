@@ -1,6 +1,7 @@
 import numpy as np
 from abc import ABC,abstractmethod
 from functools import reduce
+import time
 
 class Node(ABC):
     @abstractmethod
@@ -39,7 +40,7 @@ class Layer:
         self.numOutputs = totalNodes
         self.weightInit = weightInit
         self.gradientsW = None
-        self.gradientsU = None
+        self.propgrad   = None
         self.weightedInput = None
 
     def __call__(self,u):
@@ -51,14 +52,16 @@ class Layer:
             self.weights = self.weightInit(self.numOutputs,self.numInputs)
             self.input       = np.zeros((self.numInputs,1))
             self.gradientsW  = np.ones((self.numOutputs,self.numInputs))
-            self.gradientsU  = np.ones((self.numOutputs,self.numInputs))
         else:
             self.gradientsW = np.zeros((1,self.numInputs))
-            self.gradientsU = np.zeros((1,self.numInputs))
 
-    def initializeGrad(self):
-        self.gradientsW  = np.ones((self.numOutputs,self.numInputs))
-        self.gradientsU  = np.ones((self.numOutputs,self.numInputs))
+    def initializeGrad(self,dataSize=1):
+        if dataSize == 1:
+            self.gradientsW  = np.ones((self.numOutputs,self.numInputs))
+            self.propgrad    = np.zeros((self.numOutputs,1))
+        else:
+            self.gradientsW  = np.ones((dataSize,self.numOutputs,self.numInputs))
+            self.propgrad    = np.zeros((self.numOutputs,dataSize))
 
     def forwardpass(self,u):
         self.input  = np.vstack((u,np.ones((1,u.shape[1]))))
@@ -71,16 +74,12 @@ class Layer:
 
     def backwardpass(self):
         if self.prevLayer is not None:
-            self.gradientsW *= np.dot(self.Node.gradient(self.weightedInput,self.outputs),
-                                    np.transpose(self.input))
-            self.gradientsU *= np.dot(self.Node.gradient(self.weightedInput,self.outputs),
-                                    np.ones((1,self.numInputs)))*self.weights
-            self.gradientsU[:,-1] = 0 # last column is the bias term
-            if self.nextLayer is not None:
-                self.accumgrad = np.dot(self.nextLayer.gradientsU[:,:-1].sum(axis=0).reshape(self.numOutputs,1),
-                                        np.ones((1,self.numInputs)))
-                self.gradientsW *= self.accumgrad
-                self.gradientsU *= self.accumgrad
+            for i in range(self.outputs.shape[1]):
+                self.propgrad[:,[i]] = self.propgrad[:,[i]]*self.Node.gradient(self.weightedInput[:,[i]],self.outputs[:,[i]])
+                self.gradientsW[i] = np.dot(self.propgrad[:,[i]],self.input[:,[i]].T)
+                # Avoid this computation for the input layer
+                if self.prevLayer.prevLayer is not None:
+                    self.prevLayer.propgrad[:,[i]] = np.dot(np.transpose(self.weights[:,:-1]),self.propgrad[:,[i]])
 
         return self.gradientsW
 
@@ -113,17 +112,19 @@ class Network:
         return reduce(y,self.layers,u)
 
     def backwardpass(self,ypred,yactual,costgrad):
+        dataSize = ypred.shape[1]
         dJdy = costgrad(ypred,yactual)
+
+        # set the dimensions of weight gradient matrices
+        for i in range(1,self.totalLayers):
+            self.layers[i].initializeGrad(dataSize)
+
         self.SetCostGradient(dJdy)
         for i in range(self.totalLayers):
-            if i > 0:
-                self.layers[self.totalLayers - 1 - i].initializeGrad()
             self.layers[self.totalLayers - 1 - i].backwardpass()
 
     def SetCostGradient(self,dJdy):
-        gradientU = np.dot(dJdy,np.ones((1,self.layers[-1].numInputs)))
-        self.layers[-1].gradientsU = gradientU.copy()
-        self.layers[-1].gradientsW = gradientU.copy()
+        self.layers[-1].propgrad = dJdy
 
 
 def MeanSquaredError(ypred,yactual):
@@ -132,19 +133,17 @@ def MeanSquaredError(ypred,yactual):
     return mse
 
 def SquaredErrorGrad(ypred,yactual):
-    msegrad = np.mean(ypred-yactual,axis=1)
-    return msegrad.reshape(ypred.shape[0],1)
+    msegrad = ypred-yactual
+    return msegrad
 
 def TestSetEvaluation(nn,testData,testLabel):
-    total = testData.shape[1]
     ypred = np.argmax(nn(testData),axis=0)
     yactual = np.argmax(testLabel,axis=0)
     n = len([abs(val) for val in ypred-yactual if abs(val) < 1])
-    print(n,"/",total)
+    return n
 
 
 def Train(network,cost,grad,data,label,epochs,learningRate,minibatch = 25,testData=None,testLabel=None):
-    inputSize = data.shape[0]
     totalSize = data.shape[1]
     indices = [i for i in range(totalSize)]
 
@@ -160,22 +159,25 @@ def Train(network,cost,grad,data,label,epochs,learningRate,minibatch = 25,testDa
             sampleData = dataS[:,start:end]
             yactual = labelS[:,start:end]
 
-            weightsGrad = [np.zeros(l.weights.shape) for l in network.layers[1:]]
-            for k in range(minibatch):
-                # forward pass
-                ypred = network(sampleData[:,k].reshape(inputSize,1))
+            # forward pass
+            ypred = network(sampleData)
+            # backward pass
 
-                # backward pass
-                network.backwardpass(ypred,yactual[:,k].reshape(10,1),grad)
+            network.backwardpass(ypred,yactual,grad)
 
-                weightsGrad = [wg+l.gradientsW for wg,l in zip(weightsGrad,network.layers[1:])]
-
-
-            weightsGrad = [w/minibatch for w in weightsGrad]
-            for wg,layer in zip(weightsGrad,network.layers[1:]):
-                layer.weights -= 0.01*wg
+            for layer in network.layers[1:]:
+                layer.weights -= learningRate*np.mean(layer.gradientsW,axis=0)
 
 
         if testData is not None and testLabel is not None:
-            TestSetEvaluation(network,testData,testLabel)
+            n = TestSetEvaluation(network,testData,testLabel)
+            print("epoch: %d, %d/%d"%(i,n,testLabel.shape[1]))
+
+def ShowTestData(i,network,testData):
+    from matplotlib import pyplot as plt
+    img = testData[:,[i]].reshape(28,28)
+    print(np.argmax(network(testData[:,[i]])))
+    plt.imshow(img)
+    plt.show()
+
         
